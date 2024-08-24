@@ -1,0 +1,37 @@
+# Change database's url with real account and address.
+# Go into scripts/demo/native fold in this project, then start baetyl-cloud by ../../../output/baetyl-cloud -c ./conf/conf.yml
+
+server:
+  port: ":9202"
+
+database:
+  type: "dm"
+  url: "dm://SYSDBA:SYSDBA@172.16.100.19:5237/SYSDBA?charset=utf8&parseTime=True&loc=Local"
+
+minio:
+  endPoint: "172.16.100.17:9000"
+  accessKey: "root"
+  secretKey: "adminminio"
+
+mqtt:
+  address: "tcp://172.16.100.15:50010"
+  username: ""
+  password: ""
+  clientid: ""
+
+hook:
+  api: "http://172.16.100.14:1985/api/v1/clients/"
+  rtmp: "rtmp://172.16.100.14:1935/"
+  hls: "http://172.16.100.14:8080/"
+  rtmp_slave: "rtmp://192.168.8.202:1935/,rtmp://192.168.8.201:1935/"
+  hls_slave: "http://192.168.8.202:8080/,http://192.168.8.201:8080/"
+
+
+
+logger:
+  level: debug
+  filename: "./logs/run.log"
+  maxSize: 300 # MB
+  maxBackups: 3
+  maxAge: 28   # days
+  compress: true
