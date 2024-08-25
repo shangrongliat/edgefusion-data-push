@@ -1,6 +1,7 @@
 package service
 
 import (
+	"edgefusion-data-push/plugin/json"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -27,6 +28,7 @@ type StorageService interface {
 	ImageStorage(nodeId, appName string, data []byte)
 	TimeSeriesStorage(nodeId, appId string, target *message.Target)
 	Test()
+	Testw()
 }
 
 type StorageServiceImpl struct {
@@ -121,6 +123,29 @@ func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, target *m
 func (s *StorageServiceImpl) Test() {
 	if err := s.influx.Get("IGA0LwM2w1WGVmXw", "ef-msg-distributor"); err != nil {
 		log.L().Error("时序数据查询失败", log.Error(err))
+	}
+}
+
+func (s *StorageServiceImpl) Testw() {
+	for i := 0; i < 50; i++ {
+		var target influx.Detection
+		target.Score = 12.21312312
+		target.Box = "[1,2,3,4]"
+		target.Location = "[1.23,12.321.321]"
+		target.Class = fmt.Sprintf("12345%v", i)
+		target.Name = fmt.Sprintf("car%v", i)
+		marshal, err := json.Marshal(target)
+		if err != nil {
+			log.L().Error("", log.Error(err))
+		}
+		fields := map[string]interface{}{
+			// 目标类别
+			"target": marshal,
+		}
+		if err := s.influx.Save("FDt4zjxNrTnohMt3", "skills-test-004", fields); err != nil {
+			log.L().Error("时序数据查询失败", log.Error(err))
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
 

@@ -45,7 +45,7 @@ func main() {
 		context.DatabaseSetHandle(db)
 		go rs.Run()
 		defer rs.Close()
-		go client.Start()
+		//go client.Start()
 		defer client.Close()
 		ctx.Log().Info("init data-push server starting")
 		ctx.Wait()
