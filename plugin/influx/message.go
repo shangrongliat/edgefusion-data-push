@@ -14,4 +14,6 @@ type Detection struct {
 	Image []byte `json:"image,omitempty"`
 	// 目标地理位置，格式为(lon,lat,height) 经度、纬度和高度，有些场景下可以从图片中解算出地理位置
 	Location string `json:"location,omitempty"`
+	// 数据时间
+	Time string `json:"time"`
 }

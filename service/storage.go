@@ -26,7 +26,7 @@ var TimeSeriesDataInfo = sync.Map{}
 type StorageService interface {
 	VideoStorage(dvr bean.DvrCallBackInfo)
 	ImageStorage(nodeId, appName string, data []byte)
-	TimeSeriesStorage(nodeId, appId string, target *message.Target)
+	TimeSeriesStorage(nodeId, appId string, time uint64, target *message.Target)
 	Test()
 	Testw()
 }
@@ -79,7 +79,7 @@ func (s *StorageServiceImpl) ImageStorage(nodeId, appName string, data []byte) {
 	createDataInfo(nodeId, appName, fileName, path, common.ImageType, common.ImagePng, float64(len(data)))
 }
 
-func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, target *message.Target) {
+func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, time uint64, target *message.Target) {
 	if info := getTimeSeriesInfo(nodeId, appName); info == nil {
 		// 判断内存中没有对应的time series 信息
 		// 查询数据中是否存在
@@ -96,19 +96,21 @@ func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, target *m
 			createDataInfo(nodeId, appName, fmt.Sprintf("%s-%s", nodeId, appName), "", common.TimeSeries, common.NilType, 0)
 		}
 	}
+	var inTarget influx.Detection
+	inTarget.Score = target.Score
+	inTarget.Box = target.Box
+	inTarget.Location = target.Location
+	inTarget.Class = target.Class
+	inTarget.Name = target.Name
+	inTarget.Time = common.Time2String(time)
+	marshal, err := json.Marshal(target)
+	if err != nil {
+		log.L().Error("", log.Error(err))
+	}
 	fields := map[string]interface{}{
 		// 目标类别
-		"Class": target.GetClass(),
-		// 目标名称
-		"Name": target.GetName(),
-		// 得分/概率
-		"Score": strconv.FormatFloat(float64(target.GetScore()), 'f', -1, 64),
-		// 目标坐标，格式为 (x,y,w,h) x,y图片中心坐标，w宽 h高
-		"Box": target.GetBox(),
-		//目标地理位置，格式为(lon,lat,height) 经度、纬度和高度，有些场景下可以从图片中解算出地理位置
-		"Location": target.GetLocation(),
+		"target": marshal,
 	}
-
 	if err := s.influx.Save(nodeId, appName, fields); err != nil {
 		log.L().Error("时序数据存储失败",
 			log.Error(err),

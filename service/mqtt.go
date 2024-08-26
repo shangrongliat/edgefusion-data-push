@@ -76,7 +76,7 @@ func (m *MqttService) subscribeToTopics() {
 		targets := da.Targets
 		for _, target := range targets {
 			// 进行消息存储
-			m.storage.TimeSeriesStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], target)
+			m.storage.TimeSeriesStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], data.Time, target)
 			if len(target.Image) > 0 {
 				// 如果长度大于0，则说明有图片
 				// 进行图片存储
