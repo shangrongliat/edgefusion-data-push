@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	log "edgefusion-data-push/plugin/logs"
-	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
+
+	log "edgefusion-data-push/plugin/logs"
+	influxdb "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
@@ -29,9 +30,13 @@ type Influx struct {
 }
 
 func NewInflux() (InfluxRepo, error) {
-	//token := os.Getenv("INFLUXDB_TOKEN")
+
 	url := "http://172.16.100.14:8086"
-	client := influxdb2.NewClient(url, "MDOZ9TWdnMlqUTKwvCg_IhjAtR3x1m8Ssjjqm7mLkjAJFNF_nSM0m52VN5oLmTL3TQN7yYV8o_Gf5FF6v9jKkw==")
+	client := influxdb.NewClient(url, "MDOZ9TWdnMlqUTKwvCg_IhjAtR3x1m8Ssjjqm7mLkjAJFNF_nSM0m52VN5oLmTL3TQN7yYV8o_Gf5FF6v9jKkw==")
+	//_, err := client.Setup(context.Background(), "admin", "influxadmin", InfluxDB_org, InfluxDB_bucket, 0)
+	//if err != nil {
+	//	log.L().Error("初始化失败", log.Error(err))
+	//}
 	writeAPI := client.WriteAPIBlocking(InfluxDB_org, InfluxDB_bucket)
 	queryAPI := client.QueryAPI(InfluxDB_org)
 	return &Influx{
@@ -62,21 +67,26 @@ func (i *Influx) Get(nodeId, appId string) error {
 	measurement := "FDt4zjxNrTnohMt3-skills-test-004"
 	// Query with parameters
 	query := fmt.Sprintf(`from(bucket:"%s")
-                |> range(start: -1h)
+	           |> range(start: -10h)
 				|> filter(fn: (r) => r._measurement == "%s")`, InfluxDB_bucket, measurement)
+	//qStr := fmt.Sprintf(`SELECT * FROM "%s"`, measurement)
 
-	result, err := i.queryAPI.Query(context.Background(), query)
+	res, err := i.queryAPI.Query(context.Background(), query)
 	if err != nil {
 		log.L().Error("查询异常.", log.Error(err))
 		return err
 	}
-	if result.Err() != nil {
-		log.L().Error("query parsing error", log.Error(result.Err()))
-		return err
-	}
-	// 遍历查询结果
-	for result.Next() {
+	for res.Next() {
+		if res.TableChanged() {
+			fmt.Printf("表：%s\n", res.TableMetadata().String())
+		}
+		value := res.Record().Value()
 
+		fmt.Println("----------", value)
+		start := res.Record().Start()
+		stop := res.Record().Stop()
+		fmt.Println(start, "---------", stop)
 	}
+
 	return nil
 }

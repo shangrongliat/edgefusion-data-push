@@ -62,6 +62,7 @@ func (s *Server) SyncRouter(ctx context.Context, engine *gin.Engine) {
 	{
 		node.POST("callback", config.Wrapper(s.api.DvrFinish))
 		node.GET("test", config.Wrapper(s.api.GetInfluxData))
+		node.GET("Testw", config.Wrapper(s.api.WInfluxData))
 	}
 
 }
