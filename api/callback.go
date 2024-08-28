@@ -11,8 +11,6 @@ import (
 	log "edgefusion-data-push/plugin/logs"
 )
 
-var authManage map[string]bean.StreamInfo
-
 func (a *API) Connect(ctx *config.Context) any {
 	var connect bean.ConnectInfo
 	if err := ctx.ShouldBindJSON(&connect); err != nil {

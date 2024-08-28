@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -24,8 +25,9 @@ var TimeSeriesDataInfo = sync.Map{}
 
 type StorageService interface {
 	VideoStorage(dvr bean.DvrCallBackInfo)
-	ImageStorage(nodeId, appName string, data []byte)
-	TimeSeriesStorage(nodeId, appId string, target *message.Target)
+	ImageStorage(nodeId, appName, time string, data []byte)
+	TimeSeriesStorage(nodeId, appId string, time uint64, target *message.Target)
+	TargetStorage(nodeId, appName string, time uint64, targets []*message.Target) error
 	Test()
 }
 
@@ -64,8 +66,8 @@ func (s *StorageServiceImpl) VideoStorage(dvr bean.DvrCallBackInfo) {
 	createDataInfo(nodeId, appName, fileName[len(fileName)-1], minioFileName, common.ImageType, common.ImagePng, float64(uploadIndo.Size))
 }
 
-func (s *StorageServiceImpl) ImageStorage(nodeId, appName string, data []byte) {
-	fileName := fmt.Sprintf("%v%v.jpg", time.Now().UnixMilli(), rand.Intn(900)+100)
+func (s *StorageServiceImpl) ImageStorage(nodeId, appName, time string, data []byte) {
+	fileName := fmt.Sprintf("%v%v.jpg", time, rand.Intn(900)+100)
 	bucketName := fmt.Sprintf("%s/%s/%s", nodeId, appName, fileName)
 	if err := s.client.PutStreamObject(common.MinioImageBucket, bucketName, data); err != nil {
 		log.L().Error("图片上传失败",
@@ -77,7 +79,7 @@ func (s *StorageServiceImpl) ImageStorage(nodeId, appName string, data []byte) {
 	createDataInfo(nodeId, appName, fileName, path, common.ImageType, common.ImagePng, float64(len(data)))
 }
 
-func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, target *message.Target) {
+func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, time uint64, target *message.Target) {
 	if info := getTimeSeriesInfo(nodeId, appName); info == nil {
 		// 判断内存中没有对应的time series 信息
 		// 查询数据中是否存在
@@ -94,17 +96,20 @@ func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, target *m
 			createDataInfo(nodeId, appName, fmt.Sprintf("%s-%s", nodeId, appName), "", common.TimeSeries, common.NilType, 0)
 		}
 	}
+	var inTarget influx.Detection
+	inTarget.Class = target.Class                // 目标类别
+	inTarget.Name = target.Name                  // 目标名称
+	inTarget.Score = target.Score                // 得分/概率
+	inTarget.Box = target.Box                    // 目标坐标，格式为 (x,y,w,h) x,y图片中心坐标，w宽 h高
+	inTarget.Location = target.Location          // 目标地理位置，格式为(lon,lat,height) 经度、纬度和高度，有些场景下可以从图片中解算出地理位置
+	inTarget.Time = common.TimeUint2String(time) // 格式化时间
+	inTarget.Timestamp = time                    // 时间戳
+	marshal, err := json.Marshal(inTarget)
+	if err != nil {
+		log.L().Error("时序数据Json化失败", log.Error(err))
+	}
 	fields := map[string]interface{}{
-		// 目标类别
-		"Class": target.GetClass(),
-		// 目标名称
-		"Name": target.GetName(),
-		// 得分/概率
-		"Score": strconv.FormatFloat(float64(target.GetScore()), 'f', -1, 64),
-		// 目标坐标，格式为 (x,y,w,h) x,y图片中心坐标，w宽 h高
-		"Box": target.GetBox(),
-		//目标地理位置，格式为(lon,lat,height) 经度、纬度和高度，有些场景下可以从图片中解算出地理位置
-		"Location": target.GetLocation(),
+		"target": marshal,
 	}
 
 	if err := s.influx.Save(nodeId, appName, fields); err != nil {
@@ -116,6 +121,61 @@ func (s *StorageServiceImpl) TimeSeriesStorage(nodeId, appName string, target *m
 		)
 		return
 	}
+}
+
+func (s *StorageServiceImpl) TargetStorage(nodeId, appName string, time uint64, targets []*message.Target) error {
+	if info := getTimeSeriesInfo(nodeId, appName); info == nil {
+		// 判断内存中没有对应的time series 信息
+		// 查询数据中是否存在
+		infos, err := repo.NewDataInfo().GetByNodeIdAndAppNameAndType(nodeId, appName, common.TimeSeries)
+		if err != nil {
+			log.L().Debug("未查询到有效信息", log.Error(err))
+			return err
+		}
+		if len(infos) != 0 {
+			// 不等于0 说明有对应的数据，将数据添加到内存中
+			setTimeSeriesInfo(nodeId, appName, &infos[0])
+		} else {
+			// 不存在则创建对应数据
+			createDataInfo(nodeId, appName, fmt.Sprintf("%s-%s", nodeId, appName), "", common.TimeSeries, common.NilType, 0)
+		}
+	}
+	var targetList []*influx.Detection
+	for i, target := range targets {
+		var inTarget influx.Detection
+		inTarget.Class = target.Class                // 目标类别
+		inTarget.Name = target.Name                  // 目标名称
+		inTarget.Score = target.Score                // 得分/概率
+		inTarget.Box = target.Box                    // 目标坐标，格式为 (x,y,w,h) x,y图片中心坐标，w宽 h高
+		inTarget.Location = target.Location          // 目标地理位置，格式为(lon,lat,height) 经度、纬度和高度，有些场景下可以从图片中解算出地理位置
+		inTarget.Time = common.TimeUint2String(time) // 格式化时间
+		inTarget.Timestamp = time
+		targetList = append(targetList, &inTarget)
+		// 时间戳
+		if len(target.Image) > 0 {
+			// 如果长度大于0，则说明有图片
+			// 进行图片存储
+			s.ImageStorage(nodeId, appName, fmt.Sprintf("%v-%v", time, i), target.Image)
+		}
+	}
+	marshal, err := json.Marshal(targetList)
+	if err != nil {
+		log.L().Error("时序数据Json化失败", log.Error(err))
+		return err
+	}
+	fields := map[string]interface{}{
+		"target": marshal,
+	}
+	if err = s.influx.Save(nodeId, appName, fields); err != nil {
+		log.L().Error("时序数据存储失败",
+			log.Error(err),
+			log.Any("nodeId", nodeId),
+			log.Any("appName", appName),
+			log.Any("fields", fields),
+		)
+		return err
+	}
+	return nil
 }
 
 func (s *StorageServiceImpl) Test() {
@@ -137,6 +197,7 @@ func createDataInfo(nodeId, appName, fileName, path string, dType, dataType int,
 	info.DataPath = path
 	info.Size = value
 	info.Type = dType
+	info.DateTime = time.Now().Unix()
 	info.DataType = dataType
 	info.CreateTime = utils.Time2String(time.Now().Unix())
 	if err := repo.NewDataInfo().Create(info); err != nil {

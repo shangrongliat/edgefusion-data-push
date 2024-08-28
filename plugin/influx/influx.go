@@ -14,7 +14,7 @@ import (
 // OZKfwLM43c_115CVH4BWm4vMwVcsPDrDz6hNlaHRK5wUjre7xz40k1sOJ0b4E4cu76awoHytAXMjo99R9djjFQ==
 
 const (
-	InfluxDB_org    = "arboo"
+	InfluxDB_org    = "edgefusion"
 	InfluxDB_bucket = "ef-data"
 )
 
@@ -30,9 +30,8 @@ type Influx struct {
 
 func NewInflux() (InfluxRepo, error) {
 	//token := os.Getenv("INFLUXDB_TOKEN")
-	token := "OZKfwLM43c_115CVH4BWm4vMwVcsPDrDz6hNlaHRK5wUjre7xz40k1sOJ0b4E4cu76awoHytAXMjo99R9djjFQ=="
 	url := "http://172.16.100.14:8086"
-	client := influxdb2.NewClient(url, token)
+	client := influxdb2.NewClient(url, "MDOZ9TWdnMlqUTKwvCg_IhjAtR3x1m8Ssjjqm7mLkjAJFNF_nSM0m52VN5oLmTL3TQN7yYV8o_Gf5FF6v9jKkw==")
 	writeAPI := client.WriteAPIBlocking(InfluxDB_org, InfluxDB_bucket)
 	queryAPI := client.QueryAPI(InfluxDB_org)
 	return &Influx{
@@ -77,17 +76,7 @@ func (i *Influx) Get(nodeId, appId string) error {
 	}
 	// 遍历查询结果
 	for result.Next() {
-		//mes := result.Record().Measurement()
-		Class := result.Record().ValueByKey("Class")
-		Name := result.Record().ValueByKey("Name")
-		Box := result.Record().ValueByKey("Box")
-		Score := result.Record().ValueByKey("Score")
-		Location := result.Record().ValueByKey("Location")
-		value := result.Record().Value()
-		field := result.Record().Field()
-		fmt.Printf("class: %v; name: %v; box: %v; score: %v; location: %v \n", Class, Name, Box, Score, Location)
-		fmt.Println("value ===== ", value)
-		fmt.Println("field ===== ", field)
+
 	}
 	return nil
 }

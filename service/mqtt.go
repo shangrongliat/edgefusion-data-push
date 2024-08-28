@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strconv"
 
 	"edgefusion-data-push/message"
 	"edgefusion-data-push/plugin/config"
@@ -71,17 +72,13 @@ func (m *MqttService) subscribeToTopics() {
 		}
 		//strings.ReplaceAll(data.Metadata["EF_APP_NAME"], "-", "")
 		if len(da.GetImageFrame()) > 0 {
-			m.storage.ImageStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], da.GetImageFrame())
+			m.storage.ImageStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], strconv.FormatUint(data.Time, 10), da.GetImageFrame())
 		}
 		targets := da.Targets
-		for _, target := range targets {
-			// 进行消息存储
-			m.storage.TimeSeriesStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], target)
-			if len(target.Image) > 0 {
-				// 如果长度大于0，则说明有图片
-				// 进行图片存储
-				m.storage.ImageStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], target.Image)
-			}
+		// 进行消息存储
+		if err := m.storage.TargetStorage(data.Metadata["EF_NODE_ID"], data.Metadata["EF_APP_NAME"], data.Time, targets); err != nil {
+			log.L().Error("数据持久化失败.", log.Error(err))
+			return
 		}
 	})
 	if token.Wait() && token.Error() != nil {
