@@ -55,9 +55,6 @@ func (m *MqttService) Start() {
 }
 
 func (m *MqttService) subscribeToTopics() {
-	/*if m.subscribed {
-		return
-	}*/
 	// 主题订阅
 	token := m.client.Subscribe("/ef/msg/ir", 0, func(c MQTT.Client, msg MQTT.Message) {
 		// 在这里处理消息

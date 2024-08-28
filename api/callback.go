@@ -1,14 +1,12 @@
 package api
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	"edgefusion-data-push/bean"
 	"edgefusion-data-push/cache"
 	"edgefusion-data-push/plugin/config"
 	log "edgefusion-data-push/plugin/logs"
+	"fmt"
+	"strings"
 )
 
 func (a *API) Connect(ctx *config.Context) any {
@@ -26,24 +24,32 @@ func (a *API) Publish(ctx *config.Context) any {
 		log.L().Error("publish info 解析失败.", log.Error(err))
 		return 500
 	}
-	authStreamInfo, err := cache.Cache.PullCache(publish.Stream)
-	if err != nil || authStreamInfo == nil {
-		// 回调 关闭此次请求
+	//authStreamInfo, err := cache.Cache.PullCache(publish.Stream)
+	//if err != nil || authStreamInfo == nil {
+	//	// 回调 关闭此次请求
+	//	return 500
+	//}
+	//if shell, ok := authStreamInfo.(bean.StreamInfo); ok {
+	//	shell.Active = true
+	//	shell.GenerateTime = time.Now().Second()
+	//	return 0
+	//}
+	if err := a.storage.LiveStart(publish); err != nil {
+		log.L().Error("直播推流异常", log.Error(err))
 		return 500
 	}
-	if shell, ok := authStreamInfo.(bean.StreamInfo); ok {
-		shell.Active = true
-		shell.GenerateTime = time.Now().Second()
-		return 0
-	}
 	// 不存在则返回失败
-	return 500
+	return 0
 }
 
 func (a *API) UnPublish(ctx *config.Context) any {
 	var publish bean.PublishInfo
 	if err := ctx.ShouldBindJSON(&publish); err != nil {
 		log.L().Error("un_publish info 解析失败.", log.Error(err))
+		return 500
+	}
+	if err := a.storage.LiveStop(publish); err != nil {
+		log.L().Error("停止推流异常", log.Error(err))
 		return 500
 	}
 	log.L().Debug("un_publish", log.Any("data", publish))

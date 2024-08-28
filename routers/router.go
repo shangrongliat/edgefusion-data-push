@@ -64,7 +64,11 @@ func (s *Server) SyncRouter(ctx context.Context, engine *gin.Engine) {
 		node.GET("test", config.Wrapper(s.api.GetInfluxData))
 		node.GET("Testw", config.Wrapper(s.api.WInfluxData))
 	}
-
+	live := v1.Group("/live")
+	{
+		live.POST("start", config.Wrapper(s.api.DvrFinish))
+		live.POST("stop", config.Wrapper(s.api.DvrFinish))
+	}
 }
 
 // GetRoute get router
